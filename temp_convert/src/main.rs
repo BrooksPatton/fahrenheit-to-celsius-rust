@@ -1,6 +1,11 @@
 use std::io;
 use std::ops::Deref;
 
+enum Temperature {
+    Farenheit(f32),
+    Celsius(f32),
+}
+
 fn main() {
     println!("Temperature converter!");
     let mut input_temperature = get_temperature();
