@@ -1,9 +1,26 @@
 use std::io;
 use std::ops::Deref;
 
+
 enum Temperature {
-    Farenheit(f32),
-    Celsius(f32),
+    Farenheit,
+    Celsius,
+}
+
+impl Temperature {
+    fn get_symbol(self) -> char {
+        match self {
+            Temperature::Farenheit => 'f',
+            Temperature::Celsius => 'c',
+        }
+    }
+
+    fn convert(self) -> Temperature {
+        match self {
+            Temperature::Farenheit => Temperature::Celsius,
+            Temperature::Celsius => Temperature::Farenheit,
+        }
+    }
 }
 
 fn main() {
@@ -12,34 +29,33 @@ fn main() {
     let mut input_symbol = get_temperature_symbol();
 
     match input_symbol {
-        'f' => {
+        Temperature::Farenheit => {
             input_temperature = convert_f_to_c(input_temperature);
-            input_symbol = 'c';
             },
-        'c' => {
+        Temperature::Celsius => {
             input_temperature = convert_c_to_f(input_temperature);
-            input_symbol = 'f';
             },
-        _ => unreachable!(),
     }
+
+    input_symbol = input_symbol.convert();
     
-    println!("Your temperature is {}{}", input_temperature, input_symbol);
+    println!("Your temperature is {}{}", input_temperature, input_symbol.get_symbol());
 }
 
 fn get_temperature() -> f32 {
     let message = "What is the temperature you want to convert?";
     let temperature = get_user_input(message);
     temperature.parse::<f32>()
-        .expect("please give me a number next time :(")    
+        .expect("please give me a number next time :(")
 }
 
-fn get_temperature_symbol() -> char {
+fn get_temperature_symbol() -> Temperature {
     let message = "Is this a temperature in c or f?";
     let temperature_symbol = get_user_input(message);
 
     match temperature_symbol.deref() {
-        "f" | "F" => 'f',
-        "c" | "C" => 'c',
+        "f" | "F" => Temperature::Farenheit,
+        "c" | "C" => Temperature::Celsius,
         _ => panic!("Please enter C or F"),
     }
 }
