@@ -1,78 +1,91 @@
-use std::io;
-use std::ops::Deref;
+use std::io::{self, Write};
+use std::fmt::{self, Display};
 
-
+// I think it makes sense to derive Copy for this,
+// since it's only a f32 and the tag and thus cheap to copy
+#[derive(Clone, Copy, Debug)]
 enum Temperature {
-    Farenheit,
-    Celsius,
+    Fahrenheit(f32),
+    Celsius(f32),
 }
 
 impl Temperature {
-    fn get_symbol(self) -> char {
-        match self {
-            Temperature::Farenheit => 'f',
-            Temperature::Celsius => 'c',
+    fn convert_in_place(&mut self) {
+        use Temperature::*; // Bring the variants of Temperature into the local scope to simplify matching
+        match *self {
+            // Here we change `self` in place and assign it the new Temperature value
+            Fahrenheit(t) => *self = Celsius((t - 32.0) / 1.8),
+            Celsius(t) => *self = Fahrenheit(t * 1.8 + 32.0),
         }
     }
 
-    fn convert(self) -> Temperature {
-        match self {
-            Temperature::Farenheit => Temperature::Celsius,
-            Temperature::Celsius => Temperature::Farenheit,
+    fn convert_to_new(&self) -> Self { // `Self` is a shorthand for the type we are currently writing the impl for
+        use Temperature::*;
+        match *self {
+            Fahrenheit(t) => Celsius((t - 32.0) / 1.8),
+            Celsius(t) => Fahrenheit(t * 1.8 + 32.0),
+        }
+    }
+
+    fn is_celsius(&self) -> bool {
+        if let Temperature::Celsius(_) = *self {
+            true
+        } else {
+            false
+        }
+    }
+
+    fn is_fahrenheit(&self) -> bool {
+        !self.is_celsius()
+    }
+}
+
+// We'll want to implement the Display trait for our enum,
+// so that we can print it using `{}` and get the temperature nicely formatted
+impl Display for Temperature {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use Temperature::*;
+        match *self {
+            // The `write!()` macro works similarly to the `print!()` macro, except that
+            // it takes a target to write to. In our case this is a mutable reference to a std::fmt::Formatter
+            Fahrenheit(t) => write!(f, "{}°F", t),
+            Celsius(t) => write!(f, "{}°C", t),
         }
     }
 }
 
 fn main() {
     println!("Temperature converter!");
-    let mut input_temperature = get_temperature();
-    let mut input_symbol = get_temperature_symbol();
-
-    match input_symbol {
-        Temperature::Farenheit => {
-            input_temperature = convert_f_to_c(input_temperature);
-            },
-        Temperature::Celsius => {
-            input_temperature = convert_c_to_f(input_temperature);
-            },
-    }
-
-    input_symbol = input_symbol.convert();
-    
-    println!("Your temperature is {}{}", input_temperature, input_symbol.get_symbol());
+    let temperature = get_temperature();
+    println!("Your input temperature is {}", temperature);
+    println!("After converting your temperature is {}", temperature.convert_to_new());
 }
 
-fn get_temperature() -> f32 {
-    let message = "What is the temperature you want to convert?";
-    let temperature = get_user_input(message);
-    temperature.parse::<f32>()
-        .expect("please give me a number next time :(")
-}
+fn get_temperature() -> Temperature {
+    let mut buf = String::new(); // We'll reuse this buffer for all our input
+    get_user_input("What is the temperature you want to convert?\n> ", &mut buf);
 
-fn get_temperature_symbol() -> Temperature {
-    let message = "Is this a temperature in c or f?";
-    let temperature_symbol = get_user_input(message);
+    let temp = buf.trim().parse()
+        .expect("please give me a number next time :(");
 
-    match temperature_symbol.deref() {
-        "f" | "F" => Temperature::Farenheit,
-        "c" | "C" => Temperature::Celsius,
+    get_user_input("Is this a temperature in c or f?\n> ", &mut buf);
+    match buf.trim() {
+        "f" | "F" => Temperature::Fahrenheit(temp),
+        "c" | "C" => Temperature::Celsius(temp),
         _ => panic!("Please enter C or F"),
     }
 }
 
-fn get_user_input(message: &str) -> String {
-    let mut user_input = String::new();
-    println!("{}", message);
-    io::stdin().read_line(&mut user_input)
+// Providing a buffer for `read_line()` to read into let's us reuse the buffer and save some allocations
+fn get_user_input(message: &str, buffer: &mut String) {
+    buffer.clear(); // Remove any old content in the buffer
+    
+    // We'll use `print!()` instead of `println!()` so we can have a message that doesn't end with a newline
+    // Because `print!()` doesn't automatically flush Stdout we'll need to do this manually. Otherwise the message
+    // might not get printed before we read from Stdin
+    print!("{}", message);
+    io::stdout().flush().expect("could not flush Stdout");
+    
+    io::stdin().read_line(buffer)
         .expect("I failed to read the line, please try again");
-
-    String::from(user_input.trim())
-}
-
-fn convert_f_to_c(temperature: f32) -> f32 {
-    (temperature - 32.0) * (5.0/9.0)
-}
-
-fn convert_c_to_f(temperature: f32) -> f32 {
-    (temperature * (9.0 / 5.0)) + 32.0
 }
